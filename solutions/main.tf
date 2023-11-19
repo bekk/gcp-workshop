@@ -1,0 +1,4 @@
+
+locals {
+  id = "-navn-gcp"
+}
