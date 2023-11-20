@@ -185,6 +185,75 @@ GCP Cloud run is a fully managed platform for containerized applications. It all
 
 ## Frontend
 
+We will use Google cloud storage service to store the web site. A cloud storage bucket can store any type of object (An object can be a text file (HTML, javascript, txt), an image, a video or any other file), and can be used to host static websites.
+
+When serving a static web site from an bucket, we will need to enable the "website" feature and allow for public access. We will also use terraform to upload the files in the frontend_dist/ folder.
+
+We will also set uo a HTTP(S) load balancer that requires some sort of backend to serve requests. The CDN will use a backend bucket with a storage bucket as the origin server for sourcing our content. The key part here is enabling CDN by setting the “enable_cdn=true” attribute on the backend bucket.
+
+1. Create the bucket. Add this to a new file, `frontend.tf`
+
+```terraform
+resource "google_storage_bucket" "frontend" {
+  name     = "storage-bucket${local.id}"
+  location = "EU"
+  website {
+    main_page_suffix = "index.html"
+  }
+  force_destroy = true
+}
+```
+
+The `force_destroy` property is set to `true` to allow us to delete the bucket later on. We also use the attribute `website` to enable the website feature on the bucket. This will allow us to serve the content in the bucket as a static website.
+
+If we now go to the GCP console and click in the menu for "Cloud Storage", we should see the bucket we just created.
+
+2. To upload files to the bucket, terraform must track the files in the frontend_dist/ directory. We also need some MIME type information that is not readily available, so we will create a map that we can use to look up the types later. We will create local helper variables to help us out:
+
+```terraform
+locals {
+  frontend_dir   = "${path.module}/../frontend_dist"
+  frontend_files = fileset(local.frontend_dir, "**")
+
+  mime_types = {
+    ".js"   = "application/javascript"
+    ".html" = "text/html"
+  }
+}
+```
+
+path.module is the path to the infra/ directory. fileset(directory, pattern) returns a list of all files in directory matching pattern.
+
+3. Now we want to store all of these files as a object in our bucket. In order to create multiple resources, terraform provides a for_each meta-argument as a looping mechanism. We assign the frontend_files list to it, and can use each.value to refer to an element in the list.
+
+```terraform
+resource "google_storage_bucket_object" "frontend" {
+  for_each = local.frontend_files
+  bucket = google_storage_bucket.frontend.name
+  source = "${local.frontend_dir}/${each.value}"
+  content_type = lookup(local.mime_types, regex("\\.[^.]+$", each.value), null)
+  name = each.value
+  detect_md5hash = filemd5("${local.frontend_dir}/${each.value}")
+  depends_on = [ google_storage_bucket.frontend ]
+}
+```
+
+We use the "depends_on" attribute to ensure that the bucket has been made before applying these resources, as we need the bucket to exist before we can upload files to it. The code snippet also performs a regex search to look up the correct content type. The filemd5 calculates a hash of the file content, which is used to determined whether a file need to be re-uploaded. Without the hash, terraform would not be able to detect a file change (only new/deleted/renamed files).
+
+After we now run `terraform apply`, we should see the files in the bucket in the GCP console.
+
+But we are not able to see the website yet. We need to set up access to the bucket, in our case enable public access to the bucket. We will do this by creating a new IAM policy for the bucket. There are three of these, you can read more about them [here](https://registry.terraform.io/providers/hashicorp/google/latest/docs/resources/storage_bucket_iam). We will use the `google_storage_bucket_iam_member`. Add the following to `frontend.tf`:
+
+```terraform
+resource "google_storage_bucket_iam_member" "member" {
+  bucket = google_storage_bucket.frontend.name
+  role   = "roles/storage.objectViewer"
+  member = "allUsers"
+}
+```
+
+Now if we click on the `index.js` file in the bucket, we should see the contents of the file has a "Public URL". And you should be able to navigate to the website.
+
 ## DNS
 
 We will use `cloudlabs-gcp.no` for this workshop. It is already configured in a manged DNS zone. You can find it by searching for Cloud DNS in the GCP console. We will configure two records, `api.<yourid42>.cloudlabs-gcp.no` for the backend, and `<yourid42>.cloudlabs-gcp.no` for the frontend CDN. 
@@ -199,5 +268,122 @@ We will use `cloudlabs-gcp.no` for this workshop. It is already configured in a 
     }
     ```
 
+2. Reserve a IP for the frontent CDN. Add the following to `dns.tf`:
+
+```terraform
+resource "google_compute_global_address" "cdn_public_address" {
+  name     = "cdn-public-address${local.id}"
+}
+```
+
+3. Add the ip to the DNS zone
+
+```terraform
+resource "google_dns_record_set" "website" {
+  provider     = google
+  name         = "i-${local.id}.${data.google_dns_managed_zone.cloudlabs_gcp_no_dns.dns_name}"
+  type         = "A"
+  ttl          = 60
+  managed_zone = data.google_dns_managed_zone.cloudlabs_gcp_no_dns.name
+  rrdatas      = [google_compute_global_address.cdn_public_address.address]
+}
+```
+
+## Frontend CDN
+
+Now we will set a CDN. First we will start reserving a IP
+
+1. Create a new file, `cdn.tf` and add the following:
+
+```terraform
+resource "google_compute_backend_bucket" "cdn_backend_bucket" {
+  provider    = google
+  name        = "cdn-bucket${local.id}"
+  description = "Backend bucket for serving static content through CDN"
+  bucket_name = google_storage_bucket.frontend.name
+  enable_cdn  = true
+}
+
+# GCP URL MAP
+resource "google_compute_url_map" "cdn_url_map" {
+  provider        = google
+  name            = "cdn-url-map${local.id}"
+  default_service = google_compute_backend_bucket.cdn_backend_bucket.self_link
+}
+
+resource "google_compute_target_http_proxy" "default" {
+  name    = "http-proxy${local.id}"
+  url_map = google_compute_url_map.cdn_url_map.id
+}
+
+resource "google_compute_global_forwarding_rule" "default" {
+  name       = "website-forwarding-rule${local.id}"
+  target     = google_compute_target_http_proxy.default.id
+  port_range = "80"
+  load_balancing_scheme = "EXTERNAL"
+  ip_address = google_compute_global_address.cdn_public_address.address
+}
+```
+
+At its core, a HTTP(S) load balancer requires some sort of backend to serve requests. In the CDN’s case, we will use a backend bucket with a storage bucket as the origin server for sourcing our content. The key part here is enabling CDN by setting the “enable_cdn=true” attribute on the backend bucket.
+Note: We are using a multiregional storage class, which comes with slightly greater availability guarantees and faster content delivery.
+
+_Another note_: we are only setting up _http_ this means that if we try to access the _https_ we will not find it. We will fix this in the Extra section. 2. Run `terraform apply` to create the CDN. Verify that the CDN is created in the GCP console. And go to the newly created address `http://i-<your-id>-gcp.cloudlabs-gcp.no`. The propuagtion of the address can take some time. Try using `dig @8.8.8.8 i-<your-id>-gcp.cloudlabs-gcp.no` to see if the address is ready. If you see a `;; ANSWER SECTION:` it is ready.
+
 ## Extras
 
+To enable HTTPS we need to make a certificate. Then we need to add the `google-beta` to the `terraform.tf`
+
+1. Add the following to `terraform.tf`
+
+```terraform
+provider "google-beta" {
+  region      = "europe-west1"
+  project     = "cloud-labs-workshop-42clws"
+  zone        = "europe-west1-b"
+}
+```
+
+Then run `terraform init`
+
+2. Make a new file called `https.tf` and add the following:
+
+```terraform
+resource "google_compute_managed_ssl_certificate" "website" {
+  provider = google-beta
+  name     = "website-cert"
+  managed {
+    domains = [google_dns_record_set.website.name]
+  }
+}
+```
+
+This will make the certificate.
+
+2. Now we need to add it to the https proxy.
+
+```terraform
+resource "google_compute_target_https_proxy" "website" {
+  provider         = google
+  name             = "website-target-proxy"
+  url_map          = google_compute_url_map.website.self_link
+  ssl_certificates = [google_compute_managed_ssl_certificate.website.self_link]
+}
+```
+
+3. And then add it to the forwarding rule
+
+```terraform
+
+resource "google_compute_global_forwarding_rule" "default" {
+  provider              = google
+  name                  = "website-forwarding-rule"
+  load_balancing_scheme = "EXTERNAL"
+  ip_address            = google_compute_global_address.website.address
+  ip_protocol           = "TCP"
+  port_range            = "443"
+  target                = google_compute_target_https_proxy.website.self_link
+}
+```
+
+4. Run `terraform apply` and you should be able to access the website with https.

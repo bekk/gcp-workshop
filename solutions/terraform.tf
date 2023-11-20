@@ -16,3 +16,15 @@ provider "google" {
   region      = "europe-west1"
   zone        = "europe-west1-b"
 }
+provider "google-beta" {
+  region      = "europe-west1"
+  project     = "cloud-labs-workshop-42clws"
+  zone        = "europe-west1-b"
+}
+
+# resource "google_storage_default_object_access_control" "website_read" {
+#   bucket = google_storage_bucket.website.id
+#   role   = "READER"
+#   entity = "allUsers"
+# }
+
