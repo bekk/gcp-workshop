@@ -386,4 +386,4 @@ resource "google_compute_global_forwarding_rule" "default" {
 }
 ```
 
-4. Run `terraform apply` and you should be able to access the website with https.
+4. Run `terraform apply` and to start the _provisioning_ of the certificate. Provisioning a Google-managed certificate might take up to 60 minutes from the moment your DNS and load balancer configuration changes have propagated across the internet. If you have updated your DNS configuration recently, it can take a significant amount of time for the changes to fully propagate. Sometimes propagation takes up to 72 hours worldwide, although it typically takes a few hours.But if you go to the "Load balancing" and in to your load balancing in the GCP console you should see that HTTPS in the list of the frontend tab.
