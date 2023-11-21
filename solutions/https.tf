@@ -1,7 +1,7 @@
 # Create HTTPS certificate
 resource "google_compute_managed_ssl_certificate" "website" {
   provider = google-beta
-  name     = "website-cert"
+  name     = "website-certificate${local.id}"
   managed {
     domains = [google_dns_record_set.website.name]
   }
