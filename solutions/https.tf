@@ -1,27 +1,25 @@
 # Create HTTPS certificate
-resource "google_compute_managed_ssl_certificate" "website" {
+resource "google_compute_managed_ssl_certificate" "frontend" {
   provider = google-beta
-  name     = "website-certificate${local.id}"
+  name     = "website-certificate-${local.id}"
   managed {
-    domains = [google_dns_record_set.website.name]
+    domains = [google_dns_record_set.frontend.name]
   }
 }
 
 # GCP target proxy
-resource "google_compute_target_https_proxy" "website_https" {
-  provider         = google
-  name             = "website-target-proxy"
-  url_map          = google_compute_url_map.cdn_url_map.self_link
-  ssl_certificates = [google_compute_managed_ssl_certificate.website.self_link]
+resource "google_compute_target_https_proxy" "frontend" {
+  name             = "website-target-proxy-https-${local.id}"
+  url_map          = google_compute_url_map.frontend_lb.self_link
+  ssl_certificates = [google_compute_managed_ssl_certificate.frontend.self_link]
 }
 
 # GCP forwarding rule
-resource "google_compute_global_forwarding_rule" "default_https" {
-  provider              = google
-  name                  = "website-forwarding-rule"
+resource "google_compute_global_forwarding_rule" "frontend_https" {
+  name                  = "website-forwarding-rule-https-${local.id}"
   load_balancing_scheme = "EXTERNAL"
   ip_address            = google_compute_global_address.cdn_public_address.address
   ip_protocol           = "TCP"
   port_range            = "443"
-  target                = google_compute_target_https_proxy.website_https.self_link
+  target                = google_compute_target_https_proxy.frontend.self_link
 }

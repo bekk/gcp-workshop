@@ -1,4 +1,4 @@
 
 locals {
-  id = "-navn-gcp"
+  id = "tmp-navn"
 }

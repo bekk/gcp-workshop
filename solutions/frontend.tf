@@ -10,7 +10,7 @@ locals {
 
 
 resource "google_storage_bucket" "frontend" {
-  name     = "storage-bucket${local.id}"
+  name     = "storage-bucket-${local.id}"
   location = "EU"
   website {
     main_page_suffix = "index.html"
@@ -19,7 +19,7 @@ resource "google_storage_bucket" "frontend" {
 }
 
 // http er ikke satt opp ennå, trengs ikke du får owner uansett
-resource "google_storage_bucket_iam_member" "member" {
+resource "google_storage_bucket_iam_member" "frontend_read" {
   bucket = google_storage_bucket.frontend.name
   role   = "roles/storage.objectViewer"
   member = "allUsers"
@@ -41,20 +41,3 @@ resource "google_storage_bucket_object" "frontend" {
   detect_md5hash = filemd5("${local.frontend_dir}/${each.value}")
   depends_on = [ google_storage_bucket.frontend ]
 }
-
-# # Reserve an external IP
-resource "google_compute_global_address" "cdn_public_address" {
-  name     = "cdn-public-address${local.id}"
-}
-
-# # Add the IP to the DNS
-resource "google_dns_record_set" "website" {
-  provider     = google
-  name         = "i${local.id}.${data.google_dns_managed_zone.cloudlabs_gcp_no.dns_name}"
-  type         = "A"
-  ttl          = 60
-  managed_zone = data.google_dns_managed_zone.cloudlabs_gcp_no.name
-  rrdatas      = [google_compute_global_address.cdn_public_address.address]
-}
-
-# propagering av DNS kan være treig bruk dig :D 
