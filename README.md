@@ -394,9 +394,9 @@ To enable HTTPS for the CDN we need to create a certificate. Managed SSL certifi
 2. Make a new file called `https.tf` and add the following to create a certificate:
 
     ```terraform
-    resource "google_compute_managed_ssl_certificate" "website" {
+    resource "google_compute_managed_ssl_certificate" "frontend" {
       provider = google-beta
-      name     = "website-cert"
+      name     = "website-certificate-${local.id}"
       managed {
         domains = [google_dns_record_set.website.name]
       }
