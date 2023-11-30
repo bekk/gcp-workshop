@@ -369,7 +369,7 @@ We will use `cloudlabs-gcp.no` for this workshop. It is already configured in a 
     }
     ```
 
-    Verify that the CDN is created in the GCP console. And go to the newly created address `http://<your-id>-gcp.cloudlabs-gcp.no`. The propagation of the address can take some time. Try using `dig @8.8.8.8 <your-id>-gcp.cloudlabs-gcp.no` to see if the address is ready. Look for `;; ANSWER SECTION:`, and find a line that looks like `<your-id>-gcp.cloudlabs-gcp.no.  60 IN      A       34.160.83.207`. If you can't find the answer section, the DNS record might not be propagate yet (should not take more than a couple of minutes), or an error happened.
+    Verify that the CDN is created in the GCP console. And go to the newly created address `http://<your-id>.cloudlabs-gcp.no`. The propagation of the address can take some time. Try using `dig @8.8.8.8 <your-id>.cloudlabs-gcp.no` to see if the address is ready. Look for `;; ANSWER SECTION:`, and find a line that looks like `<your-id>.cloudlabs-gcp.no.  60 IN      A       34.160.83.207`. If you can't find the answer section, the DNS record might not be propagate yet (should not take more than a couple of minutes), or an error happened.
 
     <!-- TODO: Backend DNS, Backend HTTPS? -->
 
