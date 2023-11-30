@@ -227,7 +227,7 @@ In order to serve the website content a custom domain, we will also need a CDN w
     ```terraform
     resource "google_storage_bucket" "frontend" {
       name     = "storage-bucket-${local.id}"
-      location = "EU"
+      location = "EUROPE-WEST1"
       website {
         main_page_suffix = "index.html"
       }
