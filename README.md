@@ -406,8 +406,8 @@ To enable HTTPS for the CDN we need to create a certificate. Managed SSL certifi
 3. Now we need to add it to the https proxy.
 
     ```terraform
-    resource "google_compute_target_https_proxy" "website" {
-      name             = "website-target-proxy"
+    resource "google_compute_target_https_proxy" "frontend" {
+      name             = "website-target-proxy-https-${local.id}"
       url_map          = google_compute_url_map.frontend_lb.self_link
       ssl_certificates = [google_compute_managed_ssl_certificate.frontend.self_link]
     }
