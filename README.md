@@ -361,10 +361,10 @@ We will use `cloudlabs-gcp.no` for this workshop. It is already configured in a 
     ```terraform
     resource "google_dns_record_set" "website" {
       provider     = google
-      name         = "${local.id}.${data.google_dns_managed_zone.cloudlabs_gcp_no_dns.dns_name}"
+      name         = "${local.id}.${data.google_dns_managed_zone.cloudlabs_gcp_no.dns_name}"
       type         = "A"
       ttl          = 60
-      managed_zone = data.google_dns_managed_zone.cloudlabs_gcp_no_dns.name
+      managed_zone = data.google_dns_managed_zone.cloudlabs_gcp_no.name
       rrdatas      = [google_compute_global_address.cdn_public_address.address]
     }
     ```
