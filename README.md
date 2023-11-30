@@ -183,7 +183,7 @@ GCP Cloud run is a fully managed platform for containerized applications. It all
           }
           env {
             name  = "DATABASE_URL"
-            value = "postgresql://${google_sql_user.root.name}:${random_string.root_password.result}@${google_sql_database_instance.postgres.public_ip_address}:5432/${google_sql_database_instance.postgres.name}"
+            value = "postgresql://${google_sql_user.root.name}:${random_password.root_password.result}@${google_sql_database_instance.postgres.public_ip_address}:5432/${google_sql_database_instance.postgres.name}"
           }
         }
       }
