@@ -11,7 +11,7 @@ locals {
 
 resource "google_storage_bucket" "frontend" {
   name     = "storage-bucket-${local.id}"
-  location = "EU"
+  location = "EUROPE-WEST1"
   website {
     main_page_suffix = "index.html"
   }
