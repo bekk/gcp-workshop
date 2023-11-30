@@ -345,7 +345,7 @@ In order to get a custom domain up and running, we'll create a CDN with a load b
 
 We will use `cloudlabs-gcp.no` for this workshop. It is already configured in a manged DNS zone. You can find it by searching for Cloud DNS in the GCP console. We will configure two records, `api.<yourid42>.cloudlabs-gcp.no` for the backend, and `<yourid42>.cloudlabs-gcp.no` for the frontend CDN.
 
-1. To define subdomains, we'll need a reference to the managed DNS zone in our Terraform configuration. We will use the Terraform `data` block. A dta block is very useful to refer to resources created externally, including resources created by other teams or common platform resources in an organization (such as a DNS zone). Most resources have a corresponding data block.
+1. To define subdomains, we'll need a reference to the managed DNS zone in our Terraform configuration. We will use the Terraform `data` block. A data block is very useful to refer to resources created externally, including resources created by other teams or common platform resources in an organization (such as a DNS zone). Most resources have a corresponding data block.
 
     Create `dns.tf` and add the following data block:
 
