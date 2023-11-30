@@ -416,7 +416,7 @@ To enable HTTPS for the CDN we need to create a certificate. Managed SSL certifi
 4. And then add it to the forwarding rule
 
     ```terraform
-    resource "google_compute_global_forwarding_rule" "default" {
+    resource "google_compute_global_forwarding_rule" "frontend_https" {
       name                  = "website-forwarding-rule-https-${local.id}"
       load_balancing_scheme = "EXTERNAL"
       ip_address            = google_compute_global_address.cdn_public_address.address
