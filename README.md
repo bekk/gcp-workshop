@@ -37,7 +37,7 @@ You will receive access through a google account connected to your (work) email 
 
 ### Authenticating in the terminal
 
-We will use the `gcloud` CLI tool to log in..
+We will use the `gcloud` CLI tool to log in:
 
 1. Run `gcloud init` from the command line.
 
@@ -59,7 +59,7 @@ This repository has two folders for this workshop: `frontend_dist/` contains som
 
 The `infra/` folder, does not contain many files yet:
 
-* `terraform.tf` contains *provider* configuration. A provider is a plugin or library used by the terraform core to provide functionality. The `aws` we will use in this workshop provides the definition of AWS resources and translates to correct API requests when you apply your configuration.
+* `terraform.tf` contains *provider* configuration. A provider is a plugin or library used by the terraform core to provide functionality. The `google` provider we will use in this workshop provides the definition of GCP resources and translates to correct API requests when you apply your configuration.
 
 Let's move on to running some actual commands 🚀
 
