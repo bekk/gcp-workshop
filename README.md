@@ -291,7 +291,7 @@ In order to get a custom domain up and running, we'll create a CDN with a load b
 1. Create a new file `cdn.tf` and add the CDN:
 
     ```terraform
-    resource "google_compute_backend_bucket" "cdn_backend_bucket" {
+    resource "google_compute_backend_bucket" "cdn_bucket" {
       name        = "cdn-bucket-${local.id}"
       description = "Backend bucket for serving static content through CDN"
       bucket_name = google_storage_bucket.frontend.name
@@ -320,18 +320,18 @@ In order to get a custom domain up and running, we'll create a CDN with a load b
 2. Time to set up the load balancer:
 
     ```terraform
-    resource "google_compute_url_map" "frontend_lb" {
+    resource "google_compute_url_map" "lb" {
       name            = "cdn-url-map-${local.id}"
-      default_service = google_compute_backend_bucket.cdn_backend_bucket.self_link
+      default_service = google_compute_backend_bucket.cdn_bucket.self_link
     }
 
     resource "google_compute_target_http_proxy" "frontend" {
       name    = "http-proxy-${local.id}"
-      url_map = google_compute_url_map.frontend_lb.id
+      url_map = google_compute_url_map.lb.id
     }
 
-    resource "google_compute_global_forwarding_rule" "default" {
-      name       = "website-forwarding-rule-${local.id}"
+    resource "google_compute_global_forwarding_rule" "frontend" {
+      name       = "frontend-forwarding-rule-${local.id}"
       target     = google_compute_target_http_proxy.frontend.id
       port_range = "80"
       load_balancing_scheme = "EXTERNAL"
@@ -359,8 +359,7 @@ We will use `cloudlabs-gcp.no` for this workshop. It is already configured in a 
 2. Add the IP to the DNS zone:
 
     ```terraform
-    resource "google_dns_record_set" "website" {
-      provider     = google
+    resource "google_dns_record_set" "frontend" {
       name         = "${local.id}.${data.google_dns_managed_zone.cloudlabs_gcp_no.dns_name}"
       type         = "A"
       ttl          = 60
@@ -396,9 +395,9 @@ To enable HTTPS for the CDN we need to create a certificate. Managed SSL certifi
     ```terraform
     resource "google_compute_managed_ssl_certificate" "frontend" {
       provider = google-beta
-      name     = "website-certificate-${local.id}"
+      name     = "frontend-certificate-${local.id}"
       managed {
-        domains = [google_dns_record_set.website.name]
+        domains = [google_dns_record_set.frontend.name]
       }
     }
     ```
@@ -407,8 +406,8 @@ To enable HTTPS for the CDN we need to create a certificate. Managed SSL certifi
 
     ```terraform
     resource "google_compute_target_https_proxy" "frontend" {
-      name             = "website-target-proxy-https-${local.id}"
-      url_map          = google_compute_url_map.frontend_lb.self_link
+      name             = "frontend-target-proxy-https-${local.id}"
+      url_map          = google_compute_url_map.lb.self_link
       ssl_certificates = [google_compute_managed_ssl_certificate.frontend.self_link]
     }
     ```
@@ -417,7 +416,7 @@ To enable HTTPS for the CDN we need to create a certificate. Managed SSL certifi
 
     ```terraform
     resource "google_compute_global_forwarding_rule" "frontend_https" {
-      name                  = "website-forwarding-rule-https-${local.id}"
+      name                  = "frontend-forwarding-rule-https-${local.id}"
       load_balancing_scheme = "EXTERNAL"
       ip_address            = google_compute_global_address.cdn_public_address.address
       ip_protocol           = "TCP"

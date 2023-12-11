@@ -18,19 +18,17 @@ resource "google_storage_bucket" "frontend" {
   force_destroy = true
 }
 
-// http er ikke satt opp ennå, trengs ikke du får owner uansett
 resource "google_storage_bucket_iam_member" "frontend_read" {
   bucket = google_storage_bucket.frontend.name
   role   = "roles/storage.objectViewer"
   member = "allUsers"
 }
 
-# // dette er så alle kan se objektene i bucketen
-# resource "google_storage_default_object_access_control" "website_read" {
-#   bucket = google_storage_bucket.frontend.id
-#   role   = "READER"
-#   entity = "allUsers"
-# }
+#resource "google_storage_default_object_access_control" "website_read" {
+#  bucket = google_storage_bucket.frontend.id
+#  role   = "READER"
+#  entity = "allUsers"
+#}
 
 resource "google_storage_bucket_object" "frontend" {
   for_each = local.frontend_files
