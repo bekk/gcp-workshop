@@ -41,3 +41,36 @@ output "backend_url" {
   value = google_cloud_run_v2_service.backend.uri
 }
 
+resource "google_compute_region_network_endpoint_group" "backend" {
+  name = "gcr-backend-${local.id}-neg"
+  region = "europe-west1"
+  cloud_run {
+    service = google_cloud_run_v2_service.backend.name
+  }
+}
+
+resource "google_compute_backend_service" "backend" {
+  name = "gcr-backend-${local.id}" 
+  description = "Backend service for an extnernal appliation load balancer"
+
+  backend {
+    group = google_compute_region_network_endpoint_group.backend.id
+  }
+}
+
+resource "google_compute_target_http_proxy" "backend" {
+  name = "http-proxy-${local.id}-backend"
+  url_map = google_compute_url_map.lb.id
+}
+
+resource "google_compute_global_address" "backend_public_address" {
+  name     = "backend-public-address-${local.id}"
+}
+
+resource "google_compute_global_forwarding_rule" "backend" {
+  name       = "backend-forwarding-rule-${local.id}"
+  target     = google_compute_target_http_proxy.backend.id
+  port_range = "80"
+  load_balancing_scheme = "EXTERNAL"
+  ip_address = google_compute_global_address.backend_public_address.address
+}

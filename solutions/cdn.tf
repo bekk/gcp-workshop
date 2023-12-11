@@ -17,6 +17,33 @@ output "cdn_public_ip" {
 resource "google_compute_url_map" "lb" {
   name            = "cdn-url-map-${local.id}"
   default_service = google_compute_backend_bucket.cdn_bucket.self_link
+
+  # Modifications to LB are from extra tasks
+  host_rule {
+    hosts = [ local.frontend_subdomain ]
+    path_matcher = "allpaths-frontend"
+  }
+
+  path_matcher {
+    name = "allpaths-frontend"
+    default_service = google_compute_backend_bucket.cdn_bucket.self_link
+  }
+
+  host_rule {
+    hosts = [ local.backend_subdomain ]
+    path_matcher = "allpaths-backend"
+  }
+
+  path_matcher {
+    name = "allpaths-backend"
+    default_service = google_compute_backend_service.backend.self_link
+  }
+
+  test {
+    host = local.backend_subdomain
+    service = google_compute_backend_service.backend.self_link
+    path = "/todos"
+  }
 }
 
 resource "google_compute_target_http_proxy" "frontend" {

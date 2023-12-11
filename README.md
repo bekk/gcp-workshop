@@ -426,3 +426,19 @@ To enable HTTPS for the CDN we need to create a certificate. Managed SSL certifi
     ```
 
 5. Run `terraform apply` and to start the _provisioning_ of the certificate. Provisioning a Google-managed certificate might take up to 60 minutes from the moment your DNS and load balancer configuration changes have propagated across the internet. If you have updated your DNS configuration recently, it can take a significant amount of time for the changes to fully propagate. Sometimes propagation takes up to 72 hours worldwide, although it typically takes a few hours. But if you go to the "Load balancing" and in to your load balancing in the GCP console you should see that HTTPS in the list of the frontend tab.
+
+### Backend custom domain name
+
+To get a custom domain for the GCR instance, the [recommended way](https://cloud.google.com/run/docs/mapping-custom-domains) is to use a global external Application Load Balancer. We could create a new load balancer, but for the purposes of this workshop we're going to share a load balancer for the frontend and backend and use rules to direct the traffic.
+
+1. You'll need to create a [`google_compute_region_network_endpoint_group`](https://registry.terraform.io/providers/hashicorp/google/latest/docs/resources/compute_network_endpoint_group) that contains the Google Cloud Run service previously created. Then, create a [`google_compute_backend_service`](https://registry.terraform.io/providers/hashicorp/google/latest/docs/resources/compute_backend_service) using the network endpoint group (NEG). The `google_compute_backend_service` plays a similar role to the `google_compute_backend_bucket` we created for the frontend.
+
+2. Create a new public IP address and DNS record for the backend, similar to what we did for the frontend. The backend should use `api.<yourid42>.cloudlabs-gcp.no`. You can verify using `dig` or similar tools.
+
+3. Set up a `google_compute_target_http_proxy` and `google_compute_global_forwarding_rule` for the backend, similar to what was done for the frontend. After applying these changes, the load balancer won't direct traffic properly until the next step is completed.
+
+4. Modify the previously created load balancer to create `host_rule`s and `path_matcher`. You should route based on host name (domain name) only, the `path_matcher`s are required, but should match all paths. Refer to [`google_compute_url_map` documentation](https://registry.terraform.io/providers/hashicorp/google/latest/docs/resources/compute_url_map). Please note: These changes can take a couple of minutes to propagate, meaning it can be hard to test. Using the [`test` block](https://registry.terraform.io/providers/hashicorp/google/latest/docs/resources/compute_url_map#nested_test) on the URL map will let you verify that paths are properly redirected when you run apply.
+
+### Backend HTTPS for custom domain name
+
+Create a `google_compute_managed_ssl_certificate`, `google_compute_target_https_proxy` and `google_compute_global_forwarding_rule` similar to what was done for the frontend.
