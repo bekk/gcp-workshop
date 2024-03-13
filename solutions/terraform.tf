@@ -29,6 +29,8 @@ output "current_user_email" {
   value = data.google_client_openid_userinfo.current.email
 }
 
+data "google_project" "current" {}
+
 # This check will display a warning to the participants if they forget to set
 # the id local variable in main.tf
 check "id_is_set" {
