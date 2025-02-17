@@ -1,6 +1,5 @@
 # Create HTTPS certificate
 resource "google_compute_managed_ssl_certificate" "frontend" {
-  provider = google-beta
   name     = "frontend-certificate-${local.id}"
   managed {
     domains = [google_dns_record_set.frontend.name]

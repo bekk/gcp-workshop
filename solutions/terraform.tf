@@ -17,12 +17,6 @@ provider "google" {
   zone        = "europe-west1-b"
 }
 
-provider "google-beta" {
-  project     = "cloud-labs-workshop-42clws"
-  region      = "europe-west1"
-  zone        = "europe-west1-b"
-}
-
 data "google_client_openid_userinfo" "current" {}
 
 output "current_user_email" {

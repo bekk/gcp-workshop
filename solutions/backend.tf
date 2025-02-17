@@ -19,6 +19,8 @@ resource "google_cloud_run_v2_service" "backend" {
       }
     }
   }
+
+  deletion_protection = false
 }
 
 data "google_iam_policy" "noauth" {

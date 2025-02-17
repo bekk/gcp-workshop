@@ -123,7 +123,7 @@ We'll create a PostgreSQL database for our application. Cloud SQL can be used fo
     ```terraform
     random = {
       source = "hashicorp/random"
-      version = "3.5.1"
+      version = "3.6.3"
     }
     ```
 
@@ -187,6 +187,8 @@ GCP Cloud run is a fully managed platform for containerized applications. It all
           }
         }
       }
+
+      deletion_protection = false
     }
     ```
 
@@ -374,23 +376,12 @@ We will use `cloudlabs-gcp.no` for this workshop. It is already configured in a 
 
 ### Frontend HTTPS
 
-To enable HTTPS for the CDN we need to create a certificate. Managed SSL certificates are only available using the `google-beta` provider. Luckily, it's included by default in the `google` provider, so iwe'll just add another provider block and add `provider = google-beta` to our resource blocks, but [additional configuration](https://registry.terraform.io/providers/hashicorp/google/latest/docs/guides/provider_versions#using-the-google-beta-provider) is possible.
+To enable HTTPS for the CDN we need to create a certificate. The [`google_compute_managed_ssl_certificate`](https://registry.terraform.io/providers/hashicorp/google/latest/docs/resources/compute_managed_ssl_certificate) can help us out here.
 
-1. Add the `provider` block to `terraform.tf`:
-
-    ```terraform
-    provider "google-beta" {
-      project     = "cloud-labs-workshop-42clws"
-      region      = "europe-west1"
-      zone        = "europe-west1-b"
-    }
-    ```
-
-2. Make a new file called `https.tf` and add the following to create a certificate:
+1. Make a new file called `https.tf` and add the following to create a certificate:
 
     ```terraform
     resource "google_compute_managed_ssl_certificate" "frontend" {
-      provider = google-beta
       name     = "frontend-certificate-${local.id}"
       managed {
         domains = [google_dns_record_set.frontend.name]
@@ -398,7 +389,7 @@ To enable HTTPS for the CDN we need to create a certificate. Managed SSL certifi
     }
     ```
 
-3. Now we need to add it to the https proxy.
+2. Now we need to add it to the https proxy.
 
     ```terraform
     resource "google_compute_target_https_proxy" "frontend" {
@@ -408,7 +399,7 @@ To enable HTTPS for the CDN we need to create a certificate. Managed SSL certifi
     }
     ```
 
-4. And then add it to the forwarding rule
+3. And then add it to the forwarding rule
 
     ```terraform
     resource "google_compute_global_forwarding_rule" "frontend_https" {
@@ -421,7 +412,9 @@ To enable HTTPS for the CDN we need to create a certificate. Managed SSL certifi
     }
     ```
 
-5. Run `terraform apply` and to start the _provisioning_ of the certificate. Provisioning a Google-managed certificate might take up to 60 minutes from the moment your DNS and load balancer configuration changes have propagated across the internet. If you have updated your DNS configuration recently, it can take a significant amount of time for the changes to fully propagate. Sometimes propagation takes up to 72 hours worldwide, although it typically takes a few hours. But if you go to the "Load balancing" and in to your load balancing in the GCP console you should see that HTTPS in the list of the frontend tab.
+4. Run `terraform apply` and to start the _provisioning_ of the certificate. The certificate resource is quite complex, and even comes with [a warning in the documentation](https://registry.terraform.io/providers/hashicorp/google/latest/docs/resources/compute_managed_ssl_certificate).
+
+    Provisioning a Google-managed certificate might take up to 60 minutes from the moment your DNS and load balancer configuration changes have propagated across the internet. If you have updated your DNS configuration recently, it can take a significant amount of time for the changes to fully propagate. Sometimes propagation takes up to 72 hours worldwide, although it typically takes a few hours. But if you go to the "Load balancing" and in to your load balancing in the GCP console you should see HTTPS in the list of the frontend tab.
 
 ### Backend custom domain name
 
