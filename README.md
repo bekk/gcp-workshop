@@ -41,7 +41,7 @@ We will use the `gcloud` CLI tool to log in:
 
 1. Run `gcloud init` from the command line.
 
-    1. If you've previously logged in with the CLI, select the same email you used in the browser, or "Log in with a new account".
+    1. If you've previously logged in with the CLI, select the same email you used in the browser, or "Create a new configuration" if you have another account already setup in `gcloud` CLI. (You can delete this account from the `gcloud` configuration after(!) the workshop using the `gcloud auth revoke` command.)
 
 2. Select the correct account in the browser, and authorize access to "Google Cloud SDK" when prompted.
 
@@ -55,11 +55,25 @@ We will use the `gcloud` CLI tool to log in:
 
 ## Terraform
 
-This repository has two folders for this workshop: `frontend_dist/` contains some pre-built frontend files that we'll upload and `infra/` will contain our terraform code. All files should be created here, and all terraform commands assume you're in this folder, unless something else is explicitly specified.
+Start by cloning this repository if you haven't already done so, either using your preferred way using a GUI or any of the commands below:
 
-The `infra/` folder, does not contain many files yet:
+* Using the [GitHub CLI](https://cli.github.com): `gh repo clone bekk/azure-workshop`
+* Using SSH keys: `git clone git@github.com:bekk/azure-workshop`
+* Using HTTPS: `git clone https://github.com/bekk/azure-workshop`
 
-* `terraform.tf` contains *provider* configuration. A provider is a plugin or library used by the terraform core to provide functionality. The `google` provider we will use in this workshop provides the definition of GCP resources and translates to correct API requests when you apply your configuration.
+This repository has a couple a folders: 
+
+* `frontend_dist/` contains some pre-built frontend files that we'll upload.
+* `infra/` will contain our terraform code.
+* If you're stuck you can peek in the `solutions` folder.
+
+The `infra/` folder should only contain the `terraform.tf`. All files should be created in this folder, and all terraform commands assume you're in this folder, unless something else is explicitly specified.
+
+> [!TIP]
+> Resources can be declared in any file inside a module (directory). For small projects, everything can declared in a single file (conventionally named `main.tf`). There are some [file naming conventions in the terraform style guide](https://developer.hashicorp.com/terraform/language/style#file-names).
+
+> [!NOTE]
+> `terraform.tf` contains *provider* configuration. A provider is a plugin or library used by the terraform core to provide functionality. The `google` provider we will use in this workshop provides the definition of Google Cloud Platform (GCP) resources and translates resource blocks to correct API requests when you apply your configuration.
 
 Let's move on to running some actual commands 🚀
 
@@ -75,6 +89,9 @@ Let's move on to running some actual commands 🚀
     }
     ```
 
+> [!NOTE]
+> The `locals` block defines a local variable. You can reference a variable by prefixing it with `local`, e.g. `local.id`. Local variables, like other blocks, can be defined and used anywhere in a terraform module, meaning `local.id` can be referenced in other files you create in the same directory.
+
 3. Take a look at at `terraform.tf`.
 
     * The `terraform` block is used to declare providers and their versions. In this case, we use the `hashicorp/google`, the default provider for Google Cloud Platform.
@@ -86,9 +103,14 @@ Let's move on to running some actual commands 🚀
 
 ## Database
 
-We'll create a PostgreSQL database for our application. Cloud SQL can be used for MySQL, SQL Server, PostgreSQL and more. It is fully managed and based on open standards, providing well-known interfaces. In this workshop we'll simplify the setup by allowing traffic from the public internet. This is generally not recommended, but is ok for this workshop.
+We'll create a PostgreSQL database for our application. Cloud SQL can be used for MySQL, SQL Server, PostgreSQL and more. It is fully managed and based on open standards, providing well-known interfaces. 
+
+> [!CAUTION]
+> In this workshop we'll simplify the setup by allowing traffic from the public internet. This is not recommended for production use cases.
+
 
 1. Create a new file `database.tf` in the `infra/` directory.
+
 2. Create the database and the database instance by adding the following code:
 
     ```terraform
@@ -115,7 +137,11 @@ We'll create a PostgreSQL database for our application. Cloud SQL can be used fo
     }
     ```
 
-    `deletion_policy` is set to `ABANDON`. This is useful for Cloud SQL Postgres, where databases cannot be deleted from the API if there are users other than the default `postgres` user with access. The `tier` property decides the pricing tier. `db-f1-micro` is the cheapest option, giving the database 0.6 GB of RAM and shared CPU. The `ip_configuration` allows access from any IP-address on the public internet. This should not be done in production. The `deletion_protection` property is set to false, to allow us to delete the database instance through Terraform later on.
+    * `deletion_policy` is set to `ABANDON`. This is useful for Cloud SQL Postgres, where databases cannot be deleted from the API if there are users other than the default `postgres` user with access.
+    * The `tier` property decides the pricing tier.
+    * `db-f1-micro` is the cheapest option, giving the database 0.6 GB of RAM and shared CPU. 
+    * The `ip_configuration` allows access from any IP-address on the public internet. (Mind the caution above!)
+    * The `deletion_protection` property is set to false, to allow us to delete the database instance through Terraform later on. This is a safety mechanism in Terraform only, it is still possible to delete the database in the cloud console.
 
 
 3. We need to create a root user for our database. We'll start creating a password. Add the [Random provider](https://registry.terraform.io/providers/hashicorp/random/latest/docs) to the `required_providers` block in `terraform.tf`, followed by `terraform init` to initialize the provider.
@@ -155,11 +181,28 @@ We'll create a PostgreSQL database for our application. Cloud SQL can be used fo
 
 5. Run `terraform apply` to create the database and the database instance. This will take several minutes. While you wait, you can read the next task,  Verify that the database is created in the GCP console. The simplest way to find it, is to search for "SQL" or for `<yourid42>`.
 
+> [!TIP]
+> Running `terraform apply` implicitly both plans and applies the configuration. You can save the plan, and apply it in separate steps if you want to. E.g., `tf plan -out=plan.tfplan` followed by `tf apply plan.tfplan`.
+
+
+## Terraform plans and state file
+
+`terraform apply` created a *state file*, `terraform.tfstate` in the `infra/` directory. This file contains terraform's view of the state. Resources you've declared will show up here.
+
+1. Take a look at the state file. Look for the different resources you've created so far: a database, a password and a user for the database. Note how the password is in plain text in the state file.
+
+> [!CAUTION]
+> Terraform state files are generally considered very sensitive and should have strict access controls to avoid leaking privileged information.
+
+> [!TIP]
+> The terraform state file can be different from both the *desired state* (what's declared in the code) and the *actual state* (the resources that's actually there). The desired state is different from the terraform state before you apply your changes. The terraform state is different from the *actual state* when some configuration change has been done manually (i.e., modifying or deleting a resource).
+
+
 ## Backend
 
-The backend is a pre-built Docker image uploaded in the GCP Artifact Registry. We'll run it using Cloud Run which pulls the image and runs it as a container.
+The backend is a pre-built Docker image uploaded in the GCP Artifact Registry. We'll run it using Google Cloud Run which pulls the image and runs it as a container.
 
-GCP Cloud run is a fully managed platform for containerized applications. It allows you to run your frontend and backend services, batch jobs, and queue processing workloads. Cloud Run aims to provide the flexibility of containers with the simplicity of serverless. You can use buildpacks to enable you to deploy directly from source code, or you can upload an image. Cloud Run supports pull images from the Docker image Registry and GCP Artifact Registry.
+Cloud Run is a fully managed platform for containerized applications. It allows you to run your frontend and backend services, batch jobs, and queue processing workloads. Cloud Run aims to provide the flexibility of containers with the simplicity of serverless. You can use buildpacks to enable you to deploy directly from source code, or you can upload an image. Cloud Run supports pull images from the Docker image Registry and GCP Artifact Registry.
 
 1. Create a new file, `backend.tf` (still in `infra/`)
 
@@ -188,6 +231,7 @@ GCP Cloud run is a fully managed platform for containerized applications. It all
         }
       }
 
+      # Allow deleting using terraform destroy
       deletion_protection = false
     }
     ```
@@ -220,7 +264,7 @@ GCP Cloud run is a fully managed platform for containerized applications. It all
 
 ## Frontend
 
-We will use Google cloud storage service to store the web site. A cloud storage bucket can store any type of data object. An object can be a text file (HTML, javascript, txt), an image, a video or any other file, and can also be used to host static websites. We will also use terraform to upload the files in the `frontend_dist/` folder.
+We will use Google Cloud Storage to store the web site. A cloud storage bucket can store any type of data object, similarly to AWS S3 and Azure Blob Storage. An object can be a text file (HTML, javascript, txt), an image, a video or any other file, and can also be used to host static websites. We will also use terraform to upload the files in the `frontend_dist/` folder.
 
 In order to serve the website content a custom domain, we will also need a CDN with a load balancer. The CDN will use a backend bucket with a storage bucket as the origin server for sourcing our content. The key part here is enabling CDN by setting the “enable_cdn=true” attribute on the backend bucket.
 
