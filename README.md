@@ -396,7 +396,7 @@ We will use `cloudlabs-gcp.no` for this workshop. It is already configured in a 
     Create `dns.tf` and add the following data block:
 
     ```terraform
-    data "google_dns_managed_zone" "cloudlabs_gcp_no" {
+    data "google_dns_managed_zone" "cloudlabs_gcp_no_dns" {
       name = "cloudlabs-gcp-no-dns"
     }
     ```
