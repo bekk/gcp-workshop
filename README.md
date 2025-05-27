@@ -57,9 +57,9 @@ We will use the `gcloud` CLI tool to log in:
 
 Start by cloning this repository if you haven't already done so, either using your preferred way using a GUI or any of the commands below:
 
-* Using the [GitHub CLI](https://cli.github.com): `gh repo clone bekk/azure-workshop`
-* Using SSH keys: `git clone git@github.com:bekk/azure-workshop`
-* Using HTTPS: `git clone https://github.com/bekk/azure-workshop`
+* Using the [GitHub CLI](https://cli.github.com): `gh repo clone bekk/gcp-workshop`
+* Using SSH keys: `git clone git@github.com:bekk/gcp-workshop`
+* Using HTTPS: `git clone https://github.com/bekk/gcp-workshop`
 
 This repository has a couple a folders: 
 
