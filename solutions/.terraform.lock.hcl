@@ -2,22 +2,22 @@
 # Manual edits may be lost in future updates.
 
 provider "registry.terraform.io/hashicorp/google" {
-  version     = "6.26.0"
-  constraints = "6.26.0"
+  version     = "7.0.1"
+  constraints = "7.0.1"
   hashes = [
-    "h1:/Q8HAsDHD1j9ko5Fhvq3rZndu3quBbkkle8UwkGDPbw=",
-    "h1:5Sr8wXklQV3VnP9IKXQP/NDM7z4ZlDgrqPCbJHh/mUI=",
-    "zh:26f8db10fb097d56bab37dca937c19189a1bc5ae630c1745b9b2d35071989884",
-    "zh:2c9213fc8614efa08c2001071389bfa7fd33e76da70c8c5890ce054ac3027973",
-    "zh:2cb9fc9d27de1d172b48bc861a2a81a7bc59ee1bae7658c6054bc62a105e3276",
-    "zh:619bc9f9c456a2f8d79afa23709051859ac3743d5b91ecdd4cef5d12064fa682",
-    "zh:62451a53d7dbc841cead9c3c4765f899ca284539755b28002f362e34dd7df649",
-    "zh:625429a03ff835ae673da7825ddcafb04b55d72d33b271daac77c89588efebcd",
-    "zh:87b247f4b874e012c81a39d360a782c75445457e23376516d05b549ca834e162",
-    "zh:9d569e879747c534aea29b2bfbcaac937204d76332f7d6daf45e09cdfe81af10",
-    "zh:a30ff843646b1ac100da931de7393d864dec51118efbfddce23925b342d496ad",
-    "zh:a89c0feb966608befe2faa393f89a9060886b52eed9871e405402cb563f27135",
-    "zh:e2406bdbb516e77b881fb487929d5b3ca201cf524ba2e129c1ecc95dc02bac14",
+    "h1:U0A4IM8ciFleIn+1GRNceXPqNoxt/ZAHZ637Bp3xv/Y=",
+    "h1:XS8MqGSQCMCAPCwkrxPDVM+HIVUvCLO36JnItB59EBs=",
+    "zh:1409f70a7757de222023d5859b1dbcab8f3bc744a81a4d7c39aac4cf249e16ad",
+    "zh:24ca670db87d5d075852b0df8fc0d198415b02d465e853d93a18e78b4dc2b8f9",
+    "zh:52b8139dc3acda118576c2cccd228fd8b85e20e1240b5002c0a8ee96a3ea6e9a",
+    "zh:59ea80da070ed2bd41361f86deb69c3ffd858f4fa797fff417594a74a01df661",
+    "zh:72e83d46ff2554282b2cec0532854d96eefb30feb36bcb09a64a30a16b1a0af0",
+    "zh:77e4f570fd4c82246ffff74a017037894442261ceb0c10d508fe2fd0dfcb44e3",
+    "zh:7d89312d3d6d07df563c297e0acc077c2eaf40c855d89dcd03872784a71cd627",
+    "zh:9bfc2947a9a77350ca0a4f221e7957f409effb7ff2375f7937622982c5abde92",
+    "zh:a026350f3e4f2edcae02faf8f49420e257ac6bd979fa9442e146f3fdc4a9becd",
+    "zh:a6c160c90f5ef3894ea904000ddf24a752b55bf8eabe5c0ba0d9db70e44a63d3",
+    "zh:c61eeb9d379e3759236073f91d908cd01f810556278a9db8d8b1864d474f2f78",
     "zh:f569b65999264a9416862bca5cd2a6177d94ccb0424f3a4ef424428912b9cb3c",
   ]
 }
