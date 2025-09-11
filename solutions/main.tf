@@ -1,4 +1,9 @@
+variable "name" {
+  type        = string
+  description = "The name of the resource"
+  default     = "example"
+}
 
 locals {
-  id = "tmp-navn"
+  id = var.name
 }

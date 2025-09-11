@@ -60,9 +60,19 @@ resource "google_compute_backend_service" "backend" {
   }
 }
 
+resource "google_compute_url_map" "backend-lb" {
+  name            = "backend-url-map-${local.id}"
+  default_service = google_compute_backend_service.backend.self_link
+  test {
+    host = local.backend_subdomain
+    service = google_compute_backend_service.backend.self_link
+    path = "/todos"
+  }
+}
+
 resource "google_compute_target_http_proxy" "backend" {
   name = "http-proxy-${local.id}-backend"
-  url_map = google_compute_url_map.lb.id
+  url_map = google_compute_url_map.backend-lb.id
 }
 
 resource "google_compute_global_address" "backend_public_address" {

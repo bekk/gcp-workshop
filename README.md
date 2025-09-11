@@ -61,7 +61,7 @@ Start by cloning this repository if you haven't already done so, either using yo
 * Using SSH keys: `git clone git@github.com:bekk/gcp-workshop`
 * Using HTTPS: `git clone https://github.com/bekk/gcp-workshop`
 
-This repository has a couple a folders: 
+This repository has a couple a folders:
 
 * `frontend_dist/` contains some pre-built frontend files that we'll upload.
 * `infra/` will contain our terraform code.
@@ -103,7 +103,7 @@ Let's move on to running some actual commands 🚀
 
 ## Database
 
-We'll create a PostgreSQL database for our application. Cloud SQL can be used for MySQL, SQL Server, PostgreSQL and more. It is fully managed and based on open standards, providing well-known interfaces. 
+We'll create a PostgreSQL database for our application. Cloud SQL can be used for MySQL, SQL Server, PostgreSQL and more. It is fully managed and based on open standards, providing well-known interfaces.
 
 > [!CAUTION]
 > In this workshop we'll simplify the setup by allowing traffic from the public internet. This is not recommended for production use cases.
@@ -139,7 +139,7 @@ We'll create a PostgreSQL database for our application. Cloud SQL can be used fo
 
     * `deletion_policy` is set to `ABANDON`. This is useful for Cloud SQL Postgres, where databases cannot be deleted from the API if there are users other than the default `postgres` user with access.
     * The `tier` property decides the pricing tier.
-    * `db-f1-micro` is the cheapest option, giving the database 0.6 GB of RAM and shared CPU. 
+    * `db-f1-micro` is the cheapest option, giving the database 0.6 GB of RAM and shared CPU.
     * The `ip_configuration` allows access from any IP-address on the public internet. (Mind the caution above!)
     * The `deletion_protection` property is set to false, to allow us to delete the database instance through Terraform later on. This is a safety mechanism in Terraform only, it is still possible to delete the database in the cloud console.
 
@@ -264,134 +264,61 @@ Cloud Run is a fully managed platform for containerized applications. It allows 
 
 ## Frontend
 
-We will use Google Cloud Storage to store the web site. A cloud storage bucket can store any type of data object, similarly to AWS S3 and Azure Blob Storage. An object can be a text file (HTML, javascript, txt), an image, a video or any other file, and can also be used to host static websites. We will also use terraform to upload the files in the `frontend_dist/` folder.
+We will use Google Cloud Storage to store the web site. A cloud storage bucket can store any type of data object, similarly to AWS S3 and Azure Blob Storage. An object can be a text file (HTML, javascript, txt), an image, a video or any other file, and can also be used to host static websites. We will instruct Terraform to upload the files in the `frontend_dist/` folder.
 
-In order to serve the website content a custom domain, we will also need a CDN with a load balancer. The CDN will use a backend bucket with a storage bucket as the origin server for sourcing our content. The key part here is enabling CDN by setting the “enable_cdn=true” attribute on the backend bucket.
+In order to serve the website content on a custom domain, we will also need a CDN with a load balancer. The CDN will use a storage bucket as the origin server for sourcing our content.
 
-1. Create the bucket. Add this to a new file, `frontend.tf`
+The setup can be quite complex, so a module has been created for this workshop. Terraform modules are abstractions that can contain multiple resources, input variables, output values, and even other modules. They help organize and reuse code. You can read more about modules in the [Terraform module documentation](https://developer.hashicorp.com/terraform/language/modules).
+
+1. We will use the module in the `modules/gcs_static_website` folder. Add the following to `frontend.tf`:
 
     ```terraform
-    resource "google_storage_bucket" "frontend" {
-      name     = "storage-bucket-${local.id}"
-      location = "EUROPE-WEST1"
-      website {
-        main_page_suffix = "index.html"
-      }
-      force_destroy = true
+    module "website" {
+      // This is a relative path to the module
+      source            = "../modules/gcs_static_website"
+      website_id        = "website-${local.id}"
+      website_files_dir = "${path.module}/../frontend_dist"
     }
     ```
 
-    The `force_destroy` property is set to `true` to allow us to delete the bucket later on. We also use the `website` block to enable the website feature on the bucket. This will allow us to serve the content in the bucket as a static website.
+2. Run `terraform apply` and inspect the plan. This module invocation creates a Google Storage bucket, with an IAM policy and upload the objects.
 
-    If we now go to the GCP console and click in the menu for "Cloud Storage", we should see the bucket we just created.
+3. After applying the play, go to the GCP console. Find "Cloud Storage", and your bucket.
 
-2. To upload files to the bucket, Terraform must track the files in the `frontend_dist/` directory. We also need some MIME type information that is not readily available, so we will create a map that we can use to look up the types later. We will create local helper variables to help us out:
-
-    ```terraform
-    locals {
-      frontend_dir   = "${path.module}/../frontend_dist"
-      frontend_files = fileset(local.frontend_dir, "**")
-
-      mime_types = {
-        ".js"   = "application/javascript"
-        ".html" = "text/html"
-      }
-    }
-    ```
-
-    `path.module` is the path to the `infra/` directory. `fileset(directory, pattern)` returns a list of all files in directory matching pattern.
-
-3. Now we want to store all of these files as a object in our bucket. In order to create multiple resources, terraform provides a `for_each` meta-argument as a looping mechanism. We assign the `frontend_files` list to it, and can use `each.value` to refer to an element in the list.
-
-    ```terraform
-    resource "google_storage_bucket_object" "frontend" {
-      for_each = local.frontend_files
-      bucket = google_storage_bucket.frontend.name
-      source = "${local.frontend_dir}/${each.value}"
-      content_type = lookup(local.mime_types, regex("\\.[^.]+$", each.value), null)
-      name = each.value
-      detect_md5hash = filemd5("${local.frontend_dir}/${each.value}")
-    }
-    ```
-
-    The code snippet performs a regex search to look up the correct content type. The `filemd5` calculates a hash of the file content, which is used to determined whether a file need to be re-uploaded. Without the hash, terraform would not be able to detect a file change (only new/deleted/renamed files).
-
-    After we now run `terraform apply`, we should be able to see the cloud storage bucket with it's files in the GCP console.
-
-    But we are not able to browse the website yet. We need to set up access to the bucket, in our case enable public access to the bucket. We'll create a new IAM policy for the bucket. There are three of these, you can read more about them [here](https://registry.terraform.io/providers/hashicorp/google/latest/docs/resources/storage_bucket_iam). We will use the `google_storage_bucket_iam_member`. Add the following to `frontend.tf`:
-
-    ```terraform
-    resource "google_storage_bucket_iam_member" "member" {
-      bucket = google_storage_bucket.frontend.name
-      role   = "roles/storage.objectViewer"
-      member = "allUsers"
-    }
-    ```
-
-    If you navigate to `index.html` file in the bucket, we should see the contents of the file has a "Public URL". And you should be able to navigate to the website. The URL should be similar to `https://storage.googleapis.com/storage-bucket-<yourid42>/index.html`.
+    If you navigate to `index.html` file in the bucket, we should see the contents of the file has a "Public URL" that you can copy in order to navigate to the website. The URL should be similar to `https://storage.googleapis.com/storage-bucket-<yourid42>/index.html`. The site might show an error, but everything is right if you're able to navigate to the site.
 
 ## CDN
 
-In order to get a custom domain up and running, we'll create a CDN with a load balancer in front. The load balancer will be assigned a public IP which we can point a DNS record towards.
+We want a custom domain for our CDN. Luckily the `gcs_static_website` module handles this too.
 
-1. Create a new file `cdn.tf` and add the CDN:
+
+1. Add `enable_cdn = true` to the module invocation in `frontend.tf`, and run `terraform apply`.
+
+2. The module will expose a public IP. Create an `output` block to print the IP address:
 
     ```terraform
-    resource "google_compute_backend_bucket" "cdn_bucket" {
-      name        = "cdn-bucket-${local.id}"
-      description = "Backend bucket for serving static content through CDN"
-      bucket_name = google_storage_bucket.frontend.name
-      enable_cdn  = true
+    output "website_public_ip" {
+      value = module.website.public_ip
     }
     ```
 
-    The CDN acts as a load balancing backend service that serves content a cloud storage bucket. The key part here is enabling CDN by setting the `enable_cdn=true` attribute on the backend bucket. Provisioning the CDN doesn't do much, but find your CDN instance in the GCP console anyway.
+    Apply the changes, and verify that the IP output is displayed after running Terraform.
 
-1. Reserve an external IP for the load balancer in front of the CDN. Add the following to `cdn.tf`:
+    Outputs let's you easily expose useful information from a module, or display it after running `terraform apply`. You can also find the IP in the GCP console, by navigating to "Network services" > "Load balancing".
 
-    ```terraform
-    resource "google_compute_global_address" "cdn_public_address" {
-      name     = "cdn-public-address-${local.id}"
-    }
-    ```
 
-    You can find your IP by finding it in the GCP console, or adding an output:
+3. Try navigating to the IP address in your browser. You should see the frontend website - it will likely display a different error, but it still loads.
 
-    ```terraform
-    output "cdn_public_ip" {
-      value = google_compute_global_address.cdn_public_address.address
-    }
-    ```
-
-2. Time to set up the load balancer:
-
-    ```terraform
-    resource "google_compute_url_map" "lb" {
-      name            = "cdn-url-map-${local.id}"
-      default_service = google_compute_backend_bucket.cdn_bucket.self_link
-    }
-
-    resource "google_compute_target_http_proxy" "frontend" {
-      name    = "http-proxy-${local.id}"
-      url_map = google_compute_url_map.lb.id
-    }
-
-    resource "google_compute_global_forwarding_rule" "frontend" {
-      name       = "frontend-forwarding-rule-${local.id}"
-      target     = google_compute_target_http_proxy.frontend.id
-      port_range = "80"
-      load_balancing_scheme = "EXTERNAL"
-      ip_address = google_compute_global_address.cdn_public_address.address
-    }
-    ```
-
-    In our case, a HTTP(S) load balancer requires a backend service to serve requests. Cloud CDN requires a *global* load balancer, either a "global external application load balancer" or a premium tier "classic application load balancer" (see [the docs](https://cloud.google.com/load-balancing/docs/https#backend-service)). The `load_balancing_scheme` is set to `EXTERNAL`, giving us a classic application load balancer (changing to `EXTERNAL_MANAGED` will provision a global external application load balancer instead, see the [docs](https://cloud.google.com/load-balancing/docs/forwarding-rule-concepts#protocol-specifications)).
 
 ## DNS
 
-We will use `cloudlabs-gcp.no` for this workshop. It is already configured in a manged DNS zone. You can find it by searching for Cloud DNS in the GCP console. We will configure two records, `api.<yourid42>.cloudlabs-gcp.no` for the backend, and `<yourid42>.cloudlabs-gcp.no` for the frontend CDN.
+We want a custom domain for our frontend CDN instead of using the IP address. We will use `cloudlabs-gcp.no` domain for this workshop. It is already configured in a manged DNS zone. You can find it by searching for "Cloud DNS" in the GCP console.
 
-1. To define subdomains, we'll need a reference to the managed DNS zone in our Terraform configuration. We will use the Terraform `data` block. A data block is very useful to refer to resources created externally, including resources created by other teams or common platform resources in an organization (such as a DNS zone). Most resources have a corresponding data block.
+We will create a DNS A record to use `<yourid42>.cloudlabs-gcp.no`  the frontend CDN.
+
+1. To define subdomains, we'll need a reference to the managed DNS zone in our Terraform configuration.
+
+    We will use the Terraform `data` block. A data block is very useful to refer to resources created externally, including resources created by other teams or common platform resources in an organization (such as a DNS zone or a Kubernetes VPC network). Most resources have a corresponding data block.
 
     Create `dns.tf` and add the following data block:
 
@@ -405,64 +332,44 @@ We will use `cloudlabs-gcp.no` for this workshop. It is already configured in a 
 2. Add the IP to the DNS zone:
 
     ```terraform
+    locals {
+      frontend_domain = "${local.id}.${data.google_dns_managed_zone.cloudlabs_gcp_no.dns_name}"
+    }
+
     resource "google_dns_record_set" "frontend" {
-      name         = "${local.id}.${data.google_dns_managed_zone.cloudlabs_gcp_no.dns_name}"
+      name         = local.frontend_domain
       type         = "A"
       ttl          = 60
       managed_zone = data.google_dns_managed_zone.cloudlabs_gcp_no.name
-      rrdatas      = [google_compute_global_address.cdn_public_address.address]
+      rrdatas      = [module.website.public_ip]
     }
     ```
 
-    Verify that the DNS record is created in the GCP console. And go to the newly created address `http://<your-id>.cloudlabs-gcp.no`. The propagation of the address can take some time. Try using `dig @8.8.8.8 <your-id>.cloudlabs-gcp.no` to see if the address is ready. Look for `;; ANSWER SECTION:`, and find a line that looks like `<your-id>.cloudlabs-gcp.no.  60 IN      A       34.160.83.207`. If you can't find the answer section, the DNS record might not be propagate yet (should not take more than a couple of minutes), or an error happened.
+    Provision the record and verify that the DNS record is created in the GCP console.
+
+3. Go to the newly created address `http://<your-id>.cloudlabs-gcp.no`. The propagation of the address can take some time. Try using `dig @8.8.8.8 <your-id>.cloudlabs-gcp.no` to see if the address is ready. Look for `;; ANSWER SECTION:`, and find a line that looks like `<your-id>.cloudlabs-gcp.no.  60 IN      A       34.160.83.207`. If you can't find the answer section, the DNS record might not be propagate yet (should not take more than a couple of minutes), or an error happened.
 
 ## Extras
 
+### Cleaning up
+
+`terraform destroy` will delete all resources created by Terraform. When you're done with the workshop, please delete all resources created by Terraform by running `terraform destroy`. This will read the state file, and delete all resources listed in it. You will be prompted to confirm the action. You do not need to delete the resources yet, but please remember to do so after the workshop.
+
 ### Frontend HTTPS
 
-To enable HTTPS for the CDN we need to create a certificate. The [`google_compute_managed_ssl_certificate`](https://registry.terraform.io/providers/hashicorp/google/latest/docs/resources/compute_managed_ssl_certificate) can help us out here.
+To enable HTTPS for the CDN we need to create a certificate. The `gcs_static_website` module handles this for us. If you're curious about how it's done, take a look at the files in `modules/gcs_static_website`.
 
-1. Make a new file called `https.tf` and add the following to create a certificate:
+1. Add `enable_https = true` to the module invocation in `frontend.tf`. Also set the input `domain_name` to the `frontend_domain` local variable we defined in `dns.tf`.
 
-    ```terraform
-    resource "google_compute_managed_ssl_certificate" "frontend" {
-      name     = "frontend-certificate-${local.id}"
-      managed {
-        domains = [google_dns_record_set.frontend.name]
-      }
-    }
-    ```
+2. Run Terraform appy to start the _provisioning_ of the certificate. The underlying certificate resource is quite complex, and even comes with [a warning in the documentation](https://registry.terraform.io/providers/hashicorp/google/latest/docs/resources/compute_managed_ssl_certificate).
 
-2. Now we need to add it to the https proxy.
+    Provisioning a Google-managed certificate might take up to 60 minutes from the moment your DNS and load balancer configuration changes have propagated across the internet. If you have updated your DNS configuration recently, it can take a significant amount of time for the changes to fully propagate. Sometimes propagation takes up to 72 hours worldwide, although it typically takes up to a few hours.
 
-    ```terraform
-    resource "google_compute_target_https_proxy" "frontend" {
-      name             = "frontend-target-proxy-https-${local.id}"
-      url_map          = google_compute_url_map.lb.self_link
-      ssl_certificates = [google_compute_managed_ssl_certificate.frontend.self_link]
-    }
-    ```
-
-3. And then add it to the forwarding rule
-
-    ```terraform
-    resource "google_compute_global_forwarding_rule" "frontend_https" {
-      name                  = "frontend-forwarding-rule-https-${local.id}"
-      load_balancing_scheme = "EXTERNAL"
-      ip_address            = google_compute_global_address.cdn_public_address.address
-      ip_protocol           = "TCP"
-      port_range            = "443"
-      target                = google_compute_target_https_proxy.frontend.self_link
-    }
-    ```
-
-4. Run `terraform apply` and to start the _provisioning_ of the certificate. The certificate resource is quite complex, and even comes with [a warning in the documentation](https://registry.terraform.io/providers/hashicorp/google/latest/docs/resources/compute_managed_ssl_certificate).
-
-    Provisioning a Google-managed certificate might take up to 60 minutes from the moment your DNS and load balancer configuration changes have propagated across the internet. If you have updated your DNS configuration recently, it can take a significant amount of time for the changes to fully propagate. Sometimes propagation takes up to 72 hours worldwide, although it typically takes a few hours. But if you go to the "Load balancing" and in to your load balancing in the GCP console you should see HTTPS in the list of the frontend tab.
+3. Go to the "Load balancing" section in the GCP console and find the frontend load balancer with your unique id. The load balancer should have both HTTP and HTTPS enabled.
 
 ### Backend custom domain name
 
-To get a custom domain for the GCR instance, the [recommended way](https://cloud.google.com/run/docs/mapping-custom-domains) is to use a global external Application Load Balancer. We could create a new load balancer, but for the purposes of this workshop we're going to share a load balancer for the frontend and backend and use rules to direct the traffic.
+To get a custom domain for the GCR instance, the [recommended way](https://cloud.google.com/run/docs/mapping-custom-domains) is to use a global external Application Load Balancer, setting up a regional network endpoint group a backend service and more. We could create a new load balancer, but for the purposes of this workshop we're going to share a load balancer for the frontend and backend and use rules to direct the traffic.
 
 1. You'll need to create a [`google_compute_region_network_endpoint_group`](https://registry.terraform.io/providers/hashicorp/google/latest/docs/resources/compute_region_network_endpoint_group) that contains the Google Cloud Run service previously created. Then, create a [`google_compute_backend_service`](https://registry.terraform.io/providers/hashicorp/google/latest/docs/resources/compute_backend_service) using the network endpoint group (NEG). The `google_compute_backend_service` plays a similar role to the `google_compute_backend_bucket` we created for the frontend.
 

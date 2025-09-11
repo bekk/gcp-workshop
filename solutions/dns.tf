@@ -7,12 +7,16 @@ output "cloudlabs_gcp_no_dns" {
   value = data.google_dns_managed_zone.cloudlabs_gcp_no.dns_name
 }
 
+locals {
+  frontend_domain = "${local.id}.${data.google_dns_managed_zone.cloudlabs_gcp_no.dns_name}"
+}
+
 resource "google_dns_record_set" "frontend" {
-  name         = "${local.id}.${data.google_dns_managed_zone.cloudlabs_gcp_no.dns_name}"
+  name         = local.frontend_domain
   type         = "A"
   ttl          = 60
   managed_zone = data.google_dns_managed_zone.cloudlabs_gcp_no.name
-  rrdatas      = [google_compute_global_address.cdn_public_address.address]
+  rrdatas      = [module.website.public_ip]
 }
 
 resource "google_dns_record_set" "backend" {
@@ -24,7 +28,5 @@ resource "google_dns_record_set" "backend" {
 }
 
 locals {
-  frontend_subdomain = trimsuffix(google_dns_record_set.frontend.name, ".")
   backend_subdomain = trimsuffix(google_dns_record_set.backend.name, ".")
-
 }
