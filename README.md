@@ -51,7 +51,7 @@ We will use the `gcloud` CLI tool to log in:
 
     1. If you have a previously used configuration set as active, run `gcloud config set account <account>`.
 
-5. Run `gcloud auth application-default login` and complete the steps in the browser to create a credentials file that can be used by the `google` Terraform provider.
+5. Run `gcloud auth application-default login` and complete the steps in the browser to create a credentials file that can be used by the `google` Terraform provider. **Note:** Remember to check the boxes to give "Google Auth Library" access to your account.
 
 ## Terraform
 
@@ -367,18 +367,58 @@ To enable HTTPS for the CDN we need to create a certificate. The `gcs_static_web
 
 3. Go to the "Load balancing" section in the GCP console and find the frontend load balancer with your unique id. The load balancer should have both HTTP and HTTPS enabled.
 
-### Backend custom domain name
+### Backend custom domain name and HTTPS
 
-To get a custom domain for the GCR instance, the [recommended way](https://cloud.google.com/run/docs/mapping-custom-domains) is to use a global external Application Load Balancer, setting up a regional network endpoint group a backend service and more. We could create a new load balancer, but for the purposes of this workshop we're going to share a load balancer for the frontend and backend and use rules to direct the traffic.
+To get a custom domain for the GCR instance, the [recommended way](https://cloud.google.com/run/docs/mapping-custom-domains) is to use a global external Application Load Balancer, setting up a regional network endpoint group a backend service, IP address and DNS records. This is quite a lot, so we will use a module to do the heavy lifting for us.
 
-1. You'll need to create a [`google_compute_region_network_endpoint_group`](https://registry.terraform.io/providers/hashicorp/google/latest/docs/resources/compute_region_network_endpoint_group) that contains the Google Cloud Run service previously created. Then, create a [`google_compute_backend_service`](https://registry.terraform.io/providers/hashicorp/google/latest/docs/resources/compute_backend_service) using the network endpoint group (NEG). The `google_compute_backend_service` plays a similar role to the `google_compute_backend_bucket` we created for the frontend.
+The [Terraform registry](https://registry.terraform.io/) not only contains providers, but also modules that wraps functionality into easy-to-use abstractions.
 
-2. Create a new public IP address and DNS record for the backend, similar to what we did for the frontend. The backend should use `api.<yourid42>.cloudlabs-gcp.no`. You can verify using `dig` or similar tools.
+> [!CAUTION]
+> Both modules and providers can be provided by third-parties. Make sure to only use modules provided by trusted vendors. Google provides it's own modules, that sets up services the right way, and without malware.
 
-3. Set up a `google_compute_target_http_proxy` and `google_compute_global_forwarding_rule` for the backend, similar to what was done for the frontend. After applying these changes, the load balancer won't direct traffic properly until the next step is completed.
+1. We will use the `lb-http` module from Google. Use the registry search to find it.
 
-4. Modify the previously created load balancer to create `host_rule`s and `path_matcher`. You should route based on host name (domain name) only, the `path_matcher`s are required, but should match all paths. Refer to [`google_compute_url_map` documentation](https://registry.terraform.io/providers/hashicorp/google/latest/docs/resources/compute_url_map). Please note: These changes can take a couple of minutes to propagate, meaning it can be hard to test. Using the [`test` block](https://registry.terraform.io/providers/hashicorp/google/latest/docs/resources/compute_url_map#nested_test) on the URL map will let you verify that paths are properly redirected when you run apply.
+2. You'll need to create a [`google_compute_region_network_endpoint_group`](https://registry.terraform.io/providers/hashicorp/google/latest/docs/resources/compute_region_network_endpoint_group) that contains the Google Cloud Run service previously created. Use the example in the Terraform documenation to create the network endpoint group. Apply and verify that it's created.
 
-### Backend HTTPS for custom domain name
+3. Create a new public IP using the [`google_compute_global_address` resource](https://registry.terraform.io/providers/hashicorp/google/latest/docs/resources/compute_address). (Again, use the examples to figure out how to provision it.)
 
-Create a `google_compute_managed_ssl_certificate`, `google_compute_target_https_proxy` and `google_compute_global_forwarding_rule` similar to what was done for the frontend.
+4. Create a new DNS A record, pointing to the new backend IP. Verify, like before, that the DNS record is provisioned correctly.
+
+5. The `lb-http` module is quite complex, so the configuration here is given modify the configuration to reference resources you've previously created(IP address, network endpoint, DNS record). Also note that provisioning a managed SSL cert might take up to 24 hours.
+
+    ```terraform
+    module "lb-http" {
+      source  = "GoogleCloudPlatform/lb-http/google"
+      version = "13.1.0"
+
+      name               = "http-lb-${local.id}-backend"
+      project            = data.google_project.current.project_id
+      address            = <your public IP address>
+      create_address     = false
+      ssl = true
+      managed_ssl_certificate_domains = [<A record name>]
+      https_redirect = true
+
+      backends = {
+        default = {
+          description             = null
+          groups                  = [
+            {
+              # Hint: This is a reference to the id attribute of the NEG resource
+              group = <your network endpoint group>.id
+            }
+          ]
+          enable_cdn              = false
+
+          iap_config = {
+            enable = false
+          }
+          log_config = {
+            enable = false
+          }
+        }
+      }
+
+      firewall_networks = []
+    }
+    ```

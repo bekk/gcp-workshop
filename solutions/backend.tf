@@ -44,45 +44,48 @@ output "backend_url" {
 }
 
 resource "google_compute_region_network_endpoint_group" "backend" {
-  name = "gcr-backend-${local.id}-neg"
-  region = "europe-west1"
+  name                  = "backend-${local.id}-neg"
+  region                = "europe-west1"
+  network_endpoint_type = "SERVERLESS"
   cloud_run {
     service = google_cloud_run_v2_service.backend.name
   }
 }
 
-resource "google_compute_backend_service" "backend" {
-  name = "gcr-backend-${local.id}" 
-  description = "Backend service for an extnernal appliation load balancer"
+module "lb-http" {
+  source  = "GoogleCloudPlatform/lb-http/google"
+  version = "13.1.0"
 
-  backend {
-    group = google_compute_region_network_endpoint_group.backend.id
+  name               = "http-lb-${local.id}-backend"
+  project            = data.google_project.current.project_id
+  address            = google_compute_global_address.backend_public_address.address
+  create_address     = false
+  ssl = true
+  managed_ssl_certificate_domains = [google_dns_record_set.backend.name]
+  https_redirect = true
+
+  backends = {
+    default = {
+      description             = null
+      groups                  = [
+        {
+          group = google_compute_region_network_endpoint_group.backend.id
+        }
+      ]
+      enable_cdn              = false
+
+      iap_config = {
+        enable = false
+      }
+      log_config = {
+        enable = false
+      }
+    }
   }
-}
 
-resource "google_compute_url_map" "backend-lb" {
-  name            = "backend-url-map-${local.id}"
-  default_service = google_compute_backend_service.backend.self_link
-  test {
-    host = local.backend_subdomain
-    service = google_compute_backend_service.backend.self_link
-    path = "/todos"
-  }
-}
-
-resource "google_compute_target_http_proxy" "backend" {
-  name = "http-proxy-${local.id}-backend"
-  url_map = google_compute_url_map.backend-lb.id
+  firewall_networks = []
 }
 
 resource "google_compute_global_address" "backend_public_address" {
   name     = "backend-public-address-${local.id}"
-}
-
-resource "google_compute_global_forwarding_rule" "backend" {
-  name       = "backend-forwarding-rule-${local.id}"
-  target     = google_compute_target_http_proxy.backend.id
-  port_range = "80"
-  load_balancing_scheme = "EXTERNAL"
-  ip_address = google_compute_global_address.backend_public_address.address
 }
