@@ -285,7 +285,7 @@ The setup can be quite complex, so a module has been created for this workshop. 
 
 3. After applying the play, go to the GCP console. Find "Cloud Storage", and your bucket.
 
-    If you navigate to `index.html` file in the bucket, we should see the contents of the file has a "Public URL" that you can copy in order to navigate to the website. The URL should be similar to `https://storage.googleapis.com/storage-bucket-<yourid42>/index.html`. The site might show an error, but everything is right if you're able to navigate to the site.
+    If you navigate to `index.html` file in the bucket, we should see the contents of the file has a "Public URL" that you can copy in order to navigate to the website. The URL should be similar to `https://storage.googleapis.com/website-<yourid42>/index.html`. The site might show an error, but everything is right if you're able to navigate to the site.
 
 ## CDN
 
