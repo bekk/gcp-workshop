@@ -323,7 +323,7 @@ We will create a DNS A record to use `<yourid42>.cloudlabs-gcp.no`  the frontend
     Create `dns.tf` and add the following data block:
 
     ```terraform
-    data "google_dns_managed_zone" "cloudlabs_gcp_no" {
+    data "google_dns_managed_zone" "cloudlabs_gcp_no_dns" {
       name = "cloudlabs-gcp-no-dns"
     }
     ```
