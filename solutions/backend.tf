@@ -54,7 +54,7 @@ resource "google_compute_region_network_endpoint_group" "backend" {
 
 module "lb-http" {
   source  = "GoogleCloudPlatform/lb-http/google"
-  version = "13.1.0"
+  version = "14.0.0"
 
   name               = "http-lb-${local.id}-backend"
   project            = data.google_project.current.project_id
